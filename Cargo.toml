@@ -11,7 +11,6 @@ aide = { version = "0.15.1", features = ["axum", "axum-extra", "axum-json", "sca
 anyhow = "1.0"
 axum = { version = "0.8.8", features = ["multipart", "macros"] }
 argon2 = "0.5"
-async-trait = "0.1"
 base64 = "0.22"
 bigdecimal = { version = "0.4.5", features = ["serde"] }
 chacha20poly1305 = "0.10.1"
@@ -25,19 +24,15 @@ hex = "0.4"
 hmac-sha256 = "1.1.4"
 http = "1"
 itertools = "0.14"
-lazy_static = "1.4.0"
-log = { version = "0.4", features = ["std", "serde"] }
 lru = "0.16"
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18.1", default-features = false, features = ["http-listener"] }
 num-bigint = "0.4"
 num-traits = "0.2"
-opg = { version = "0.2", features = ["uuid"] }
 parking_lot = "0.12.0"
 pbkdf2 = { version = "0.12.2" }
 pomfrit = "0.1"
 rand = { version = "0.10", features = ["thread_rng"] }
-rayon = "1.10"
 regex = "1.5"
 reqwest = { version = "0.13", features = ["json"] }
 rustc-hash = "2"
