@@ -1,0 +1,38 @@
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use crate::models::*;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddressCheckRequest {
+    pub address: Address,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAddressRequest {
+    pub account_type: Option<AccountType>,
+    pub workchain_id: Option<i32>,
+    pub custodians: Option<i32>,
+    pub confirmations: Option<i32>,
+    pub custodians_public_keys: Option<Vec<String>>,
+}
+
+impl From<CreateAddressRequest> for CreateAddress {
+    fn from(c: CreateAddressRequest) -> Self {
+        CreateAddress {
+            account_type: c.account_type,
+            workchain_id: c.workchain_id,
+            custodians: c.custodians,
+            confirmations: c.confirmations,
+            custodians_public_keys: c.custodians_public_keys,
+        }
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AddAccountSubscriptionRequest {
+    pub address: String,
+}

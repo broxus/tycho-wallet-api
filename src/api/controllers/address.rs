@@ -1,0 +1,99 @@
+use axum::extract::{Path, State};
+use axum::Json;
+use tokio::time::Instant;
+
+use metrics::{counter, histogram};
+
+use crate::api::controllers::*;
+use crate::api::requests::*;
+use crate::api::responses::*;
+use crate::api::*;
+use crate::models::*;
+
+pub async fn post_address_create(
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+    Json(req): Json<CreateAddressRequest>,
+) -> Result<Json<AddressResponse>> {
+    let start = Instant::now();
+
+    let address = ctx
+        .ton_service
+        .create_address(&service_id, req.into())
+        .await
+        .map(From::from);
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "createAddress").record(elapsed);
+    counter!("requests_processed", "method" => "createAddress").increment(1);
+
+    Ok(Json(AddressResponse::from(address)))
+}
+
+pub async fn post_address_check(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<AddressCheckRequest>,
+) -> Result<Json<CheckedAddressResponse>> {
+    let address = ctx
+        .ton_service
+        .check_address(req.address)
+        .await
+        .map(AddressValidResponse::new);
+
+    Ok(Json(CheckedAddressResponse::from(address)))
+}
+
+pub async fn get_address_balance(
+    Path(address): Path<Address>,
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+) -> Result<Json<AddressBalanceResponse>> {
+    let address = ctx
+        .ton_service
+        .get_address_balance(&service_id, address)
+        .await
+        .map(|(a, b)| AddressBalanceDataResponse::new(a, b));
+
+    Ok(Json(AddressBalanceResponse::from(address)))
+}
+
+pub async fn get_address_info(
+    Path(address): Path<Address>,
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+) -> Result<Json<AddressInfoResponse>> {
+    let address = ctx
+        .ton_service
+        .get_address_info(&service_id, address)
+        .await
+        .map(AddressInfoDataResponse::new);
+
+    Ok(Json(AddressInfoResponse::from(address)))
+}
+
+pub async fn get_token_address_balance(
+    Path(address): Path<Address>,
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+) -> Result<Json<TokenBalanceResponse>> {
+    let addresses = ctx
+        .ton_service
+        .get_token_address_balance(&service_id, &address)
+        .await
+        .map(|a| {
+            a.into_iter()
+                .map(|(a, b)| TokenBalanceDataResponse::new(a, b))
+                .collect::<Vec<TokenBalanceDataResponse>>()
+        });
+
+    Ok(Json(TokenBalanceResponse::from(addresses)))
+}
+
+pub async fn post_address_subscription(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<AddAccountSubscriptionRequest>,
+) -> Result<Json<AddAccountSubscriptionResponse>> {
+    let result = ctx.ton_service.add_account_subscription(req.address).await;
+
+    Ok(Json(AddAccountSubscriptionResponse::from(result)))
+}

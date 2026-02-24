@@ -1,0 +1,17 @@
+steps:
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['-m', 'cp', '-r', 'migrations/*', 'gs://binaries.broxus.com/$CONFIG_GROUP/$CONFIG_APPLICATION/$IMAGE_VERSION/migrations']
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['-m', 'cp', '-r', 'config/$BUILD/*', 'gs://binaries.broxus.com/$CONFIG_GROUP/$CONFIG_APPLICATION/$IMAGE_VERSION/config']
+
+timeout: 6000s
+
+logsBucket: 'gs://dexpa-175115-gitlab-runner-logs'
+
+artifacts:
+  objects:
+    location: 'gs://binaries.broxus.com/$CONFIG_GROUP/$CONFIG_APPLICATION/$IMAGE_VERSION'
+    paths: [
+        'target/release/$BINARY_NAME',
+        'sqlx-data.json'
+    ]

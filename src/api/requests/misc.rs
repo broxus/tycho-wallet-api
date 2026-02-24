@@ -1,0 +1,95 @@
+use bigdecimal::BigDecimal;
+
+use schemars::JsonSchema;
+use serde::Deserialize;
+use tycho_types::abi::{AbiHeaderType, NamedAbiType};
+use uuid::Uuid;
+
+use crate::api::any_schema;
+use crate::models::*;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecuteContractRequest {
+    pub target_account_addr: String,
+    pub function_details: FunctionDetailsDTO,
+    pub responsible: Option<bool>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionDetailsDTO {
+    pub function_name: String,
+    pub input_params: Vec<InputParamDTO>,
+    #[schemars(schema_with = "any_schema")]
+    pub output_params: Vec<NamedAbiType>,
+    #[schemars(schema_with = "any_schema")]
+    pub headers: Vec<AbiHeaderType>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InputParamDTO {
+    pub value: String,
+    #[schemars(schema_with = "any_schema")]
+    pub abi_type: NamedAbiType,
+}
+
+impl From<InputParamDTO> for InputParam {
+    fn from(i: InputParamDTO) -> Self {
+        Self {
+            value: i.value,
+            abi_type: i.abi_type,
+        }
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EncodeParamRequest {
+    pub input_params: Vec<InputParamDTO>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareMessageRequest {
+    pub sender_addr: String,
+    pub public_key: String,
+    pub target_account_addr: String,
+    pub execution_flag: u8,
+
+    pub value: BigDecimal,
+    pub bounce: bool,
+    pub account_type: AccountType,
+    pub custodians: Option<i32>,
+    pub function_details: Option<FunctionDetailsDTO>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SignedMessageRequest {
+    pub sender_addr: String,
+    pub hash: String,
+    pub signature: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SendMessageRequest {
+    pub id: Option<Uuid>,
+    pub sender_addr: String,
+    pub target_account_addr: String,
+    pub execution_flag: u8,
+
+    pub value: BigDecimal,
+    pub bounce: bool,
+    pub account_type: AccountType,
+    pub custodians: Option<i32>,
+    pub function_details: Option<FunctionDetailsDTO>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SetCallbackRequest {
+    pub callback: String,
+}

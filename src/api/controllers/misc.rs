@@ -1,0 +1,266 @@
+use std::str::FromStr;
+
+use axum::extract::State;
+use axum::Json;
+use metrics::{counter, histogram};
+use tokio::time::Instant;
+use tycho_types::abi::SerializeAbiValue;
+use tycho_types::abi::SerializeAbiValueParams;
+use tycho_types::cell::HashBytes;
+use uuid::Uuid;
+
+use crate::api::controllers::*;
+use crate::api::requests::*;
+use crate::api::responses::*;
+use crate::api::*;
+use crate::models::*;
+
+pub async fn post_read_contract(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<ExecuteContractRequest>,
+) -> Result<Json<ReadContractResponse>> {
+    let start = Instant::now();
+
+    let tokens = ctx
+        .ton_service
+        .execute_contract_function(
+            &req.target_account_addr,
+            &req.function_details.function_name,
+            req.function_details
+                .input_params
+                .into_iter()
+                .map(InputParam::from)
+                .collect::<Vec<InputParam>>(),
+            req.function_details.output_params,
+            req.function_details.headers,
+            req.responsible.unwrap_or_default(),
+        )
+        .await
+        .map(|values| {
+            let params = SerializeAbiValueParams::default();
+            let mut output = Vec::new();
+            for value in values {
+                output.push(OutputParamDTO {
+                    abi_value: serde_json::to_string(&SerializeAbiValue::with_params(
+                        &value.value,
+                        params,
+                    ))
+                    .unwrap_or_default(),
+                    name: value.name.to_string(),
+                });
+            }
+            ReadContractResponse { output }
+        })?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "readContract").record(elapsed);
+    counter!("requests_processed", "method" => "readContract").increment(1);
+
+    Ok(Json(tokens))
+}
+
+pub async fn post_encode_tvm_cell(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<EncodeParamRequest>,
+) -> Result<Json<EncodedCellResponse>> {
+    let start = Instant::now();
+
+    let cell = ctx
+        .ton_service
+        .encode_tvm_cell(
+            req.input_params
+                .into_iter()
+                .map(InputParam::from)
+                .collect::<Vec<InputParam>>(),
+        )
+        .map(|cell| EncodedCellResponse { base64_cell: cell })?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "encodeTvmCell").record(elapsed);
+    counter!("requests_processed", "method" => "encodeTvmCell").increment(1);
+
+    Ok(Json(cell))
+}
+
+pub async fn post_prepare_generic_message(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<PrepareMessageRequest>,
+) -> Result<Json<UnsignedMessageHashResponse>> {
+    let start = Instant::now();
+
+    let function_details = req.function_details.map(|d| FunctionDetails {
+        function_name: d.function_name,
+        input_params: d
+            .input_params
+            .into_iter()
+            .map(InputParam::from)
+            .collect::<Vec<InputParam>>(),
+        output_params: d.output_params,
+        headers: d.headers,
+    });
+
+    let unsigned_message = ctx
+        .ton_service
+        .prepare_generic_message(
+            &req.sender_addr,
+            hex::decode(&req.public_key)?.as_slice(),
+            &req.target_account_addr,
+            req.execution_flag,
+            req.value,
+            req.bounce,
+            &req.account_type,
+            &req.custodians,
+            function_details,
+        )
+        .await?;
+
+    let message_hash = ctx.memory_storage.add_message(unsigned_message);
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "prepareGenericMessage").record(elapsed);
+    counter!("requests_processed", "method" => "prepareGenericMessage").increment(1);
+
+    Ok(Json(UnsignedMessageHashResponse {
+        unsigned_message_hash: message_hash.to_string(),
+    }))
+}
+
+pub async fn post_send_signed_message(
+    State(ctx): State<ApiContext>,
+    Json(req): Json<SignedMessageRequest>,
+) -> Result<Json<SignedMessageHashResponse>> {
+    let start = Instant::now();
+    let message_hash = HashBytes::from_str(&req.hash)
+        .map_err(|_| ControllersError::WrongInput("Bad hash format".to_string()))?;
+
+    let res = match ctx.memory_storage.get_message(&message_hash) {
+        Some(message) => {
+            let expire_at = message.expire_at();
+            let signature: [u8; 64] = hex::decode(req.signature)
+                .map_err(|_| ControllersError::WrongInput("Bad signature format".to_string()))?
+                .try_into()
+                .map_err(|_| ControllersError::WrongInput("Bad signature format".to_string()))?;
+
+            let owned_message = message
+                .with_signature(&ed25519_dalek::Signature::from_bytes(&signature))
+                .map_err(|_| ControllersError::WrongInput("Bad signature format".to_string()))?;
+
+            let hash = ctx
+                .ton_service
+                .send_signed_message(req.sender_addr, req.hash, owned_message, expire_at)
+                .await?;
+
+            Ok(SignedMessageHashResponse {
+                signed_message_hash: hash,
+            })
+        }
+        None => Err(ControllersError::WrongInput(
+            "Message unknown or expired".to_string(),
+        )),
+    }?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "sendSignedMessage").record(elapsed);
+    counter!("requests_processed", "method" => "sendSignedMessage").increment(1);
+
+    Ok(Json(res))
+}
+
+pub async fn post_send_generic_message(
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+    Json(req): Json<SendMessageRequest>,
+) -> Result<Json<TransactionResponse>> {
+    let start = Instant::now();
+
+    let function_details = req.function_details.map(|d| FunctionDetails {
+        function_name: d.function_name,
+        input_params: d
+            .input_params
+            .into_iter()
+            .map(InputParam::from)
+            .collect::<Vec<InputParam>>(),
+        output_params: d.output_params,
+        headers: d.headers,
+    });
+
+    let transaction = ctx
+        .ton_service
+        .prepare_and_send_signed_generic_message(
+            &service_id,
+            &req.sender_addr,
+            &req.target_account_addr,
+            req.execution_flag,
+            req.value,
+            req.bounce,
+            &req.account_type,
+            &req.custodians,
+            function_details,
+            req.id.unwrap_or_else(Uuid::new_v4),
+        )
+        .await
+        .map(From::from);
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "sendGenericMessage").record(elapsed);
+    counter!("requests_processed", "method" => "sendGenericMessage").increment(1);
+
+    Ok(Json(TransactionResponse::from(transaction)))
+}
+
+pub async fn post_set_callback(
+    State(ctx): State<ApiContext>,
+    IdExtractor(service_id): IdExtractor,
+    Json(req): Json<SetCallbackRequest>,
+) -> Result<Json<SetCallbackResponse>> {
+    let start = Instant::now();
+    let callback = req;
+
+    let response = ctx
+        .ton_service
+        .set_callback(&service_id, callback.callback)
+        .await?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "setCallback").record(elapsed);
+    counter!("requests_processed", "method" => "setCallback").increment(1);
+
+    Ok(Json(SetCallbackResponse { callback: response }))
+}
+
+pub async fn get_token_whitelist(
+    State(ctx): State<ApiContext>,
+) -> Result<Json<TokenWhitelistResponse>> {
+    let start = Instant::now();
+
+    let whitelist = ctx.ton_service.token_whitelist().await.map(|tokens| {
+        let tokens: Vec<_> = tokens
+            .into_iter()
+            .map(WhitelistedTokenResponse::from)
+            .collect();
+        TokenWhitelistResponse {
+            count: tokens.len() as i32,
+            items: tokens,
+        }
+    })?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "getTokenWhitelist").record(elapsed);
+    counter!("requests_processed", "method" => "getTokenWhitelist").increment(1);
+
+    Ok(Json(whitelist))
+}
+
+pub async fn post_resubscribe_for_all_accounts(
+    State(ctx): State<ApiContext>,
+) -> Result<Json<ResubscribeResponse>> {
+    let start = Instant::now();
+
+    ctx.ton_service.resubscribe_for_all_accounts().await?;
+
+    let elapsed = start.elapsed();
+    histogram!("execution_time_seconds", "method" => "resubscribeForAllAccounts").record(elapsed);
+    counter!("requests_processed", "method" => "resubscribeForAllAccounts").increment(1);
+
+    Ok(Json(ResubscribeResponse {}))
+}

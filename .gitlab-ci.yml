@@ -1,0 +1,38 @@
+stages:
+  - cloudbuild
+
+cloudbuild:rust-artifact:
+  stage: cloudbuild
+  only:
+    - master
+  variables:
+    CONFIG_BUILDER: gcr.io/dexpa-175115/rust/rust-builder:v1.64.0
+    BINARY_NAME: tycho-wallet-api
+    CONFIG_APPLICATION: tycho-wallet-api
+    CONFIG_GROUP: ton
+    IMAGE_NAME: gcr.io/broxus/ton/tycho-wallet-api/tycho-wallet-api
+    BUILD: test
+  before_script:
+    - export COMMIT_TIME=$(git show -s --format=%ct $CI_COMMIT_SHA)
+    - export IMAGE_VERSION=$CI_COMMIT_REF_SLUG/$COMMIT_TIME
+    - envsubst < cloudbuild-template.yaml > cloudbuild.yaml
+  script:
+    - gcloud builds submit --machine-type=n1-highcpu-8 --config cloudbuild.yaml .
+
+cloudbuild:rust-artifact-prod:
+  stage: cloudbuild
+  only:
+    - prod
+  variables:
+    CONFIG_BUILDER: gcr.io/dexpa-175115/rust/rust-builder:v1.64.0
+    BINARY_NAME: tycho-wallet-api
+    CONFIG_APPLICATION: tycho-wallet-api
+    CONFIG_GROUP: ton
+    IMAGE_NAME: gcr.io/broxus/ton/tycho-wallet-api/tycho-wallet-api
+    BUILD: prod
+  before_script:
+    - export COMMIT_TIME=$(git show -s --format=%ct $CI_COMMIT_SHA)
+    - export IMAGE_VERSION=$CI_COMMIT_REF_SLUG/$COMMIT_TIME
+    - envsubst < cloudbuild-template.yaml > cloudbuild.yaml
+  script:
+    - gcloud builds submit --machine-type=n1-highcpu-8 --config cloudbuild.yaml .

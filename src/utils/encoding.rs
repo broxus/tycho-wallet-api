@@ -1,0 +1,26 @@
+use anyhow::{Error, Result};
+use base64::{engine::general_purpose, Engine as _};
+use chacha20poly1305::aead::AeadMut;
+use chacha20poly1305::{ChaCha20Poly1305, Nonce};
+
+pub fn encrypt_private_key(private_key: &[u8], key: [u8; 32], id: &uuid::Uuid) -> Result<String> {
+    use chacha20poly1305::KeyInit;
+    let nonce = Nonce::from_slice(&id.as_bytes()[0..12]);
+    let key = chacha20poly1305::Key::from_slice(&key[..]);
+    let mut encryptor = ChaCha20Poly1305::new(key);
+    let res = encryptor.encrypt(nonce, private_key).map_err(Error::msg)?;
+    Ok(general_purpose::STANDARD.encode(res))
+}
+
+pub fn decrypt_private_key(private_key: &str, key: [u8; 32], id: &uuid::Uuid) -> Result<Vec<u8>> {
+    use chacha20poly1305::KeyInit;
+    let nonce = Nonce::from_slice(&id.as_bytes()[0..12]);
+    let key = chacha20poly1305::Key::from_slice(&key[..]);
+    let mut decrypter = ChaCha20Poly1305::new(key);
+    decrypter
+        .decrypt(
+            nonce,
+            general_purpose::STANDARD.decode(private_key)?.as_slice(),
+        )
+        .map_err(Error::msg)
+}

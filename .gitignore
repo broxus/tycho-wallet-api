@@ -1,0 +1,14 @@
+/target
+**/*.rs.bk
+secret.toml
+/.idea
+
+.env
+
+.DS_Store
+
+/packer/gcp/.gcp_account.json
+/packer/gcp/variables.json
+
+*.pem
+result
