@@ -3,14 +3,12 @@ use std::sync::Arc;
 
 use axum::http::StatusCode;
 use bigdecimal::{BigDecimal, ToPrimitive};
-use ed25519_dalek::Signer;
 use ed25519_dalek::VerifyingKey;
 use nekoton_core::contracts::function_ext::ExecutionOutput;
 use nekoton_core::contracts::function_ext::FunctionExt;
 use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use tokio::sync::oneshot;
-use tycho_types::abi::extend_signature_with_id;
 use tycho_types::abi::{Function, NamedAbiValue, UnsignedExternalMessage};
 use tycho_types::boc::Boc;
 use tycho_types::cell::{CellBuilder, HashBytes};
@@ -344,9 +342,7 @@ impl TonClient {
                     expire_at,
                 )?;
 
-                let data_to_sign =
-                    extend_signature_with_id(unsigned_message.hash(), self.ton_core.signature_id());
-                let signature = key_pair.sign(&data_to_sign);
+                let signature = context.sign(&key_pair, unsigned_message.hash());
                 unsigned_message.sign(&signature.to_bytes())?
             }
             AccountType::Wallet => {
@@ -385,9 +381,7 @@ impl TonClient {
                     expire_at,
                 )?;
 
-                let data_to_sign =
-                    extend_signature_with_id(unsigned_message.hash(), self.ton_core.signature_id());
-                let signature = key_pair.sign(&data_to_sign);
+                let signature = context.sign(&key_pair, unsigned_message.hash());
                 unsigned_message.sign(&signature.to_bytes())?
             }
             AccountType::WalletV5R1 => {
@@ -425,9 +419,7 @@ impl TonClient {
                     expire_at,
                 )?;
 
-                let data_to_sign =
-                    extend_signature_with_id(unsigned_message.hash(), self.ton_core.signature_id());
-                let signature = key_pair.sign(&data_to_sign);
+                let signature = context.sign(&key_pair, unsigned_message.hash());
                 unsigned_message.sign(&signature.to_bytes())?
             }
             AccountType::SafeMultisig => {
@@ -1147,9 +1139,7 @@ fn build_token_transaction(
                 expire_at,
             )?;
 
-            let data_to_sign =
-                extend_signature_with_id(unsigned_message.hash(), ton_core.signature_id());
-            let signature = key_pair.sign(&data_to_sign);
+            let signature = context.sign(&key_pair, unsigned_message.hash());
             unsigned_message.sign(&signature.to_bytes())?
         }
         AccountType::Wallet => {
@@ -1175,9 +1165,7 @@ fn build_token_transaction(
                 expire_at,
             )?;
 
-            let data_to_sign =
-                extend_signature_with_id(unsigned_message.hash(), ton_core.signature_id());
-            let signature = key_pair.sign(&data_to_sign);
+            let signature = context.sign(&key_pair, unsigned_message.hash());
             unsigned_message.sign(&signature.to_bytes())?
         }
         AccountType::WalletV5R1 => {
@@ -1203,9 +1191,7 @@ fn build_token_transaction(
                 expire_at,
             )?;
 
-            let data_to_sign =
-                extend_signature_with_id(unsigned_message.hash(), ton_core.signature_id());
-            let signature = key_pair.sign(&data_to_sign);
+            let signature = context.sign(&key_pair, unsigned_message.hash());
             unsigned_message.sign(&signature.to_bytes())?
         }
         AccountType::SafeMultisig => {

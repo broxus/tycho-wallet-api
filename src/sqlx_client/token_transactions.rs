@@ -270,10 +270,9 @@ impl SqlxClient {
 
 #[cfg(test)]
 async fn prepare_test() -> SqlxClient {
-    let pg_pool =
-        PgPool::connect("postgresql://tycho:tycho@localhost:5432/tycho_wallet_api_rs")
-            .await
-            .unwrap();
+    let pg_pool = PgPool::connect("postgresql://tycho:tycho@localhost:5432/tycho_wallet_api_rs")
+        .await
+        .unwrap();
 
     SqlxClient::new(pg_pool)
 }

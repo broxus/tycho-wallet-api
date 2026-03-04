@@ -63,18 +63,21 @@ tikv-jemallocator = { version = "0.6.0", features = [
     "background_threads",
 ] }
 
-tycho-block-util = { version = "0.3.6" }
-tycho-core = { version = "0.3.6", features = ["cli"]  }
-tycho-storage = { version = "0.3.6" }
-tycho-util = { version = "0.3.6", features = ["cli"] }
+tycho-block-util = { git = "https://github.com/broxus/tycho.git", rev = "3f2a6f5defb5a2a6118ef8fa655daf3d23a6760f" }
+tycho-core = { git = "https://github.com/broxus/tycho.git", rev = "3f2a6f5defb5a2a6118ef8fa655daf3d23a6760f", features = ["cli"]  }
+tycho-storage = { git = "https://github.com/broxus/tycho.git", rev = "3f2a6f5defb5a2a6118ef8fa655daf3d23a6760f" }
+tycho-util = { git = "https://github.com/broxus/tycho.git", rev = "3f2a6f5defb5a2a6118ef8fa655daf3d23a6760f", features = ["cli"] }
 
-tycho-vm = "0.3.2"
-tycho-executor = "0.3.2"
+tycho-vm = {git = "https://github.com/broxus/tycho-vm.git"}
+tycho-executor = {git = "https://github.com/broxus/tycho-vm.git"}
 
 nekoton-core = { git = "https://github.com/broxus/tycho-nekoton.git" }
 
 [features]
 default = []
 
+
 [patch.crates-io]
-tycho-types = { git = "https://github.com/broxus/tycho-types.git", rev = "f9e5dbe1222ee51f3e4f5a6836f95a515dd6cdf1"}
+tycho-types = { git = "https://github.com/broxus/tycho-types.git", rev = "70fe4c44a136c17d1dd2d679fd62c059382a82a3"}
+tycho-vm = {git = "https://github.com/broxus/tycho-vm.git"}
+tycho-executor = {git = "https://github.com/broxus/tycho-vm.git"}
