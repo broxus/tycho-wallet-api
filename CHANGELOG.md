@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+### Changed
+- Add `Signature Domain` support.
+
 ## 1.0.0
 ### Changed
 - Tycho protocol support only.
