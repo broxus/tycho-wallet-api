@@ -5,12 +5,10 @@ use crate::sqlx_client::*;
 
 impl SqlxClient {
     pub async fn create_last_key_block(&self, block_id: &str) -> Result<()> {
-        sqlx::query!(
-            r#"INSERT INTO last_key_blocks (block_id) VALUES ($1)"#,
-            block_id
-        )
-        .execute(&self.pool)
-        .await?;
+        sqlx::query(r#"INSERT INTO last_key_blocks (block_id) VALUES ($1) ON CONFLICT DO NOTHING"#)
+            .bind(block_id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }

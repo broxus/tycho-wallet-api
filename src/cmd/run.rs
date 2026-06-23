@@ -101,8 +101,14 @@ impl Cmd {
         cli::logger::init_logger(&node_config.logger_config, self.logger_config.clone())?;
         cli::logger::set_abort_with_tracing();
 
-        node_config.threads.init_reclaimer().unwrap();
-        node_config.threads.init_global_rayon_pool().unwrap();
+        node_config
+            .threads
+            .init_reclaimer()
+            .context("failed to initialize memory reclaimer")?;
+        node_config
+            .threads
+            .init_global_rayon_pool()
+            .context("failed to initialize global rayon pool")?;
         node_config
             .threads
             .build_tokio_runtime()?
@@ -115,9 +121,10 @@ impl Cmd {
         }
 
         // Build node.
-        let keys = NodeKeys::load_or_create(self.keys.unwrap())?;
-        let global_config = GlobalConfig::from_file(self.global_config.unwrap())
-            .context("failed to load global config")?;
+        let keys = NodeKeys::load_or_create(self.keys.context("no keys path")?)?;
+        let global_config =
+            GlobalConfig::from_file(self.global_config.context("no global config path")?)
+                .context("failed to load global config")?;
         let public_ip = cli::resolve_public_ip(node_config.base.public_ip).await?;
         let public_addr = SocketAddr::new(public_ip, node_config.base.port);
 

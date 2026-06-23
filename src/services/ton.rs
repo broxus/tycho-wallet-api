@@ -98,7 +98,7 @@ impl TonService {
     }
 
     pub async fn check_address(&self, address: Address) -> Result<bool, Error> {
-        Ok(StdAddr::from_str(&address.0).is_ok())
+        Ok(StdAddr::from_str_ext(&address.0, StdAddrFormat::any()).is_ok())
     }
 
     pub async fn get_address_balance(
@@ -1186,13 +1186,11 @@ impl TonService {
             .get_all_addresses()
             .await?
             .into_iter()
-            .map(|item| {
-                let mut result = HashBytes::default();
-                hex::decode_to_slice(item.hex, &mut result.0).unwrap();
-                result
-            });
+            .map(|item| decode_hash_bytes(&item.hex))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        self.ton_api_client.add_ton_account_subscriptions(addresses);
+        self.ton_api_client
+            .add_ton_account_subscriptions(addresses.into_iter());
         Ok(())
     }
 
@@ -1207,13 +1205,13 @@ impl TonService {
         if address_dbs.is_empty() {
             return Ok(());
         }
-        let addresses = address_dbs.into_iter().map(|item| {
-            let mut result = HashBytes::default();
-            hex::decode_to_slice(item.hex, &mut result.0).unwrap();
-            result
-        });
+        let addresses = address_dbs
+            .into_iter()
+            .map(|item| decode_hash_bytes(&item.hex))
+            .collect::<Result<Vec<_>, _>>()?;
 
-        self.ton_api_client.add_ton_account_subscriptions(addresses);
+        self.ton_api_client
+            .add_ton_account_subscriptions(addresses.into_iter());
         Ok(())
     }
 
@@ -1348,6 +1346,12 @@ impl TonService {
             }
         });
     }
+}
+
+fn decode_hash_bytes(hex: &str) -> Result<HashBytes, Error> {
+    let mut result = HashBytes::default();
+    hex::decode_to_slice(hex, &mut result.0)?;
+    Ok(result)
 }
 
 async fn wait_message(

@@ -82,7 +82,7 @@ impl Api {
             ))
             .fallback(controllers::handler_404);
 
-        let listener = tokio::net::TcpListener::bind(server_addr).await.unwrap();
+        let listener = tokio::net::TcpListener::bind(server_addr).await?;
 
         let serve = axum::serve(listener, app);
 

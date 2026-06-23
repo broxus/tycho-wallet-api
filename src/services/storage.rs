@@ -12,12 +12,11 @@ pub struct StorageHandler {
 }
 
 impl StorageHandler {
-    pub fn add_message(&self, message: UnsignedExternalMessage) -> HashBytes {
-        let cell_builder =
-            CellBuilder::build_from(message.clone().without_signature().unwrap()).unwrap();
+    pub fn add_message(&self, message: UnsignedExternalMessage) -> anyhow::Result<HashBytes> {
+        let cell_builder = CellBuilder::build_from(message.clone().without_signature()?)?;
         let message_hash = *cell_builder.repr_hash();
         self.message_collection.insert(message_hash, message);
-        message_hash
+        Ok(message_hash)
     }
 
     pub fn get_message(&self, hash: &HashBytes) -> Option<UnsignedExternalMessage> {

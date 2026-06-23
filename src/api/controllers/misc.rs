@@ -114,7 +114,7 @@ pub async fn post_prepare_generic_message(
         )
         .await?;
 
-    let message_hash = ctx.memory_storage.add_message(unsigned_message);
+    let message_hash = ctx.memory_storage.add_message(unsigned_message)?;
 
     let elapsed = start.elapsed();
     histogram!("execution_time_seconds", "method" => "prepareGenericMessage").record(elapsed);

@@ -42,12 +42,10 @@ impl EngineContext {
             .max_connections(config.db_pool_size)
             .connect(&config.database_url)
             .await
-            .unwrap_or_else(|_| {
-                panic!(
-                    "Failed connection to database url - {}",
-                    config.database_url
-                )
-            });
+            .with_context(|| {
+                let database_url = &config.database_url;
+                format!("failed connection to database url - {database_url}")
+            })?;
 
         sqlx::migrate!().run(&pool).await?;
 
@@ -282,6 +280,20 @@ impl EngineContext {
             }
         }
     }
+
+    async fn persist_last_key_block_state(&self, cx: &StateSubscriberContext) -> Result<()> {
+        let block_id = cx.state.block_id();
+        if !cx.mc_is_key_block || block_id.is_masterchain() {
+            return Ok(());
+        }
+
+        self.ton_core
+            .context
+            .sqlx_client
+            .create_last_key_block(&block_id.to_string())
+            .await
+            .context("failed to persist last key block state")
+    }
 }
 
 pub type ShutdownRequestsRx = mpsc::UnboundedReceiver<()>;
@@ -291,11 +303,14 @@ impl StateSubscriber for EngineContext {
     type HandleStateFut<'a> = BoxFuture<'a, Result<()>>;
 
     fn handle_state<'a>(&'a self, cx: &'a StateSubscriberContext) -> Self::HandleStateFut<'a> {
-        Box::pin(
+        Box::pin(async move {
             self.ton_core
                 .context
                 .ton_subscriber
-                .process_block(&cx.block, &cx.state),
-        )
+                .process_block(&cx.block, &cx.state)
+                .await?;
+
+            self.persist_last_key_block_state(cx).await
+        })
     }
 }

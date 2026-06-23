@@ -85,14 +85,36 @@ pub struct Account {
     pub base64url: Address,
 }
 
+impl Account {
+    pub fn from_wc_and_address(workchain_id: i32, address: String) -> Self {
+        let account = format!("{workchain_id}:{address}");
+        let base64url = match StdAddr::from_str(&account) {
+            Ok(account) => Address(account.display_base64_url(true).to_string()),
+            Err(error) => {
+                tracing::error!(
+                    workchain_id,
+                    address,
+                    ?error,
+                    "failed to format account as base64url"
+                );
+                Address(account)
+            }
+        };
+
+        Self {
+            workchain_id,
+            hex: Address(address),
+            base64url,
+        }
+    }
+}
+
 impl From<AddressDb> for Account {
     fn from(a: AddressDb) -> Self {
-        let account = StdAddr::from_str(&format!("{}:{}", a.workchain_id, a.hex)).unwrap();
-        let base64url = Address(account.display_base64_url(true).to_string());
         Self {
             workchain_id: a.workchain_id,
             hex: Address(a.hex),
-            base64url,
+            base64url: Address(a.base64url),
         }
     }
 }

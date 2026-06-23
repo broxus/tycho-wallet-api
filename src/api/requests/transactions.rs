@@ -1,6 +1,5 @@
 use bigdecimal::BigDecimal;
 use derive_more::Constructor;
-use num_traits::FromPrimitive;
 
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -125,9 +124,7 @@ impl From<TonTokenTransactionSendRequest> for TokenTransactionSend {
             send_gas_to: c.send_gas_to,
             value: c.value,
             notify_receiver: c.notify_receiver.unwrap_or(false),
-            fee: c
-                .fee
-                .unwrap_or_else(|| BigDecimal::from_u64(TOKEN_FEE).unwrap()),
+            fee: c.fee.unwrap_or_else(|| BigDecimal::from(TOKEN_FEE)),
             payload: c.payload,
         }
     }
@@ -154,9 +151,7 @@ impl From<TonTokenTransactionBurnRequest> for TokenTransactionBurn {
             send_gas_to: c.send_gas_to,
             callback_to: c.callback_to,
             value: c.value,
-            fee: c
-                .fee
-                .unwrap_or_else(|| BigDecimal::from_u64(TOKEN_FEE).unwrap()),
+            fee: c.fee.unwrap_or_else(|| BigDecimal::from(TOKEN_FEE)),
         }
     }
 }
@@ -187,10 +182,8 @@ impl From<TonTokenTransactionMintRequest> for TokenTransactionMint {
             notify: c.notify.unwrap_or(false),
             deploy_wallet_value: c
                 .deploy_wallet_value
-                .unwrap_or_else(|| BigDecimal::from_u64(DEPLOY_TOKEN_VALUE).unwrap()),
-            fee: c
-                .fee
-                .unwrap_or_else(|| BigDecimal::from_u64(TOKEN_FEE).unwrap()),
+                .unwrap_or_else(|| BigDecimal::from(DEPLOY_TOKEN_VALUE)),
+            fee: c.fee.unwrap_or_else(|| BigDecimal::from(TOKEN_FEE)),
         }
     }
 }

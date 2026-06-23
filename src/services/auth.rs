@@ -39,7 +39,7 @@ impl AuthService {
         let key = self
             .get_key(api_key)
             .await
-            .map_err(|_| anyhow::Error::msg(format!("Can not find api key {} in db", api_key)))?;
+            .map_err(|_| anyhow::Error::msg(format!("Can not find api key {api_key} in db")))?;
 
         if let Some(whitelist) = key.whitelist {
             let whitelist: Vec<String> = serde_json::from_value(whitelist)
@@ -49,7 +49,7 @@ impl AuthService {
                 real_ip.ok_or_else(|| anyhow::Error::msg("Failed to read x-real-ip header"))?;
 
             if !whitelist.contains(&real_ip) {
-                anyhow::bail!(format!("Ip {} is not in whitelist.", real_ip))
+                anyhow::bail!(format!("Ip {real_ip} is not in whitelist."))
             }
         }
 
@@ -67,12 +67,11 @@ impl AuthService {
         let delta = (now - then).num_seconds();
         if delta > TIMESTAMP_EXPIRED_SEC {
             anyhow::bail!(format!(
-                "TIMESTAMP expired. server time: {}, header time: {}",
-                now, then
+                "TIMESTAMP expired. server time: {now}, header time: {then}"
             ))
         }
 
-        let concat = format!("{}{}{}", timestamp_ms, path, body);
+        let concat = format!("{timestamp_ms}{path}{body}");
 
         let calculated_signature = hmac_sha256::HMAC::mac(concat.as_bytes(), key.secret.as_bytes());
 

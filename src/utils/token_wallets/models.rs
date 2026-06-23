@@ -294,7 +294,9 @@ impl RootTokenContract<'_> {
             return Err(anyhow::anyhow!("Failed to get decimals"));
         };
 
-        Ok(decimals.to_u8().unwrap())
+        decimals
+            .to_u8()
+            .ok_or_else(|| anyhow::anyhow!("decimals does not fit into u8"))
     }
 
     pub fn total_supply(&mut self) -> anyhow::Result<u128> {
@@ -318,7 +320,9 @@ impl RootTokenContract<'_> {
             return Err(anyhow::anyhow!("Failed to get total_supply"));
         };
 
-        Ok(total_supply.to_u128().unwrap())
+        total_supply
+            .to_u128()
+            .ok_or_else(|| anyhow::anyhow!("total_supply does not fit into u128"))
     }
 
     pub fn wallet_code(&mut self) -> anyhow::Result<Cell> {
@@ -476,7 +480,9 @@ impl TokenWalletContract<'_> {
             return Err(anyhow::anyhow!("Failed to get balance"));
         };
 
-        Ok(balance.to_u128().unwrap())
+        balance
+            .to_u128()
+            .ok_or_else(|| anyhow::anyhow!("balance does not fit into u128"))
     }
 }
 

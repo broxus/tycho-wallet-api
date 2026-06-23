@@ -145,8 +145,9 @@ impl TonCoreContext {
             messages_queue.clone(),
             global_version.capabilities.into_inner(),
             mc_state.state().global_id,
+            last_block_id.seqno,
             config,
-        );
+        )?;
 
         // Load last states if exists
         let block_ids = sqlx_client.get_last_key_blocks().await?;
@@ -230,7 +231,7 @@ impl TonCoreContext {
             tycho_types::models::OptionalAccount::load_from(&mut account_state.data.as_slice()?)?;
 
         let shard_account = tycho_types::models::ShardAccount {
-            account: Lazy::new(&account).unwrap(),
+            account: Lazy::new(&account)?,
             last_trans_hash: account_state.last_transaction_hash,
             last_trans_lt: account.last_trans_lt(),
         };
@@ -250,7 +251,9 @@ impl TonCoreContext {
         let Some(account) = optional else {
             return Err(anyhow::anyhow!("account not found"));
         };
-        let address = account.address.as_std().unwrap();
+        let Some(address) = account.address.as_std() else {
+            return Err(anyhow::anyhow!("non-standard account address"));
+        };
 
         let executor_params = ExecutorParams {
             block_unixtime: expire_at - 10,
