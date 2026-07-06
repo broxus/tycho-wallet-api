@@ -89,6 +89,7 @@ impl From<AddressDb> for Account {
     fn from(a: AddressDb) -> Self {
         let account = StdAddr::from_str(&format!("{}:{}", a.workchain_id, a.hex)).unwrap();
         let base64url = Address(account.display_base64_url(true).to_string());
+
         Self {
             workchain_id: a.workchain_id,
             hex: Address(a.hex),

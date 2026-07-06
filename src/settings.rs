@@ -72,16 +72,17 @@ fn default_key() -> Vec<u8> {
         let options = options
             .output_len(32) //chacha key size
             .build()
-            .unwrap();
+            .map_err(|error| anyhow::anyhow!("failed to build argon2 params: {error}"))?;
 
         // Argon2 with default params (Argon2id v19)
         let argon2 =
             argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, options);
 
-        let salt = Salt::from_b64(&salt).unwrap();
+        let salt =
+            Salt::from_b64(&salt).map_err(|error| anyhow::anyhow!("invalid SALT: {error}"))?;
         let key = argon2
             .hash_password(secret.as_bytes(), salt)
-            .unwrap()
+            .map_err(|error| anyhow::anyhow!("failed to hash secret: {error}"))?
             .hash
             .context("No hash")?
             .as_bytes()

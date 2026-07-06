@@ -1,5 +1,5 @@
 use std::collections::hash_map;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 
 use anyhow::Result;
@@ -13,7 +13,7 @@ use nekoton_core::contracts::blockchain_context::{BlockchainContext, BlockchainC
 use nekoton_core::transport::SimpleTransport;
 use tycho_block_util::block::BlockStuff;
 use tycho_block_util::state::{RefMcStateHandle, ShardStateStuff};
-use tycho_vm::StackValue;
+use tycho_util::time::now_sec;
 
 use crate::models::ExistingContract;
 use crate::ton_core::*;
@@ -21,7 +21,11 @@ use crate::utils::token_wallets::models::TokenWalletVersion;
 use crate::utils::token_wallets::parsing;
 
 pub struct TonSubscriber {
+    ready: AtomicBool,
     current_utime: AtomicU32,
+    mc_seqno: AtomicU32,
+    masterchain_last_updated: AtomicI64,
+    network_id: AtomicI32,
     signature_id: SignatureId,
     capabilities: Capabilities,
     state_subscriptions: RwLock<FxHashMap<HashBytes, StateSubscription>>,
@@ -37,23 +41,27 @@ impl TonSubscriber {
         messages_queue: Arc<PendingMessagesQueue>,
         capabilities_bits: u64,
         global_id: i32,
+        mc_seqno: u32,
         config: BlockchainConfig,
-    ) -> Arc<Self> {
+    ) -> Result<Arc<Self>> {
         let signature_id = SignatureId::default();
         signature_id.store(capabilities_bits, global_id);
 
         let capabilities = Capabilities(AtomicU64::new(capabilities_bits));
 
-        let transport = SimpleTransport::new(vec![], config.clone()).unwrap();
+        let transport = SimpleTransport::new(vec![], config.clone())?;
 
         let blockchain_context = BlockchainContextBuilder::new()
             .with_config(config)
             .with_transport(Arc::new(transport))
-            .build()
-            .unwrap();
+            .build()?;
 
-        Arc::new(Self {
+        Ok(Arc::new(Self {
+            ready: AtomicBool::new(false),
             current_utime: AtomicU32::new(0),
+            mc_seqno: AtomicU32::new(mc_seqno),
+            masterchain_last_updated: AtomicI64::new(0),
+            network_id: AtomicI32::new(global_id),
             signature_id,
             state_subscriptions: RwLock::new(FxHashMap::with_capacity_and_hasher(
                 1024,
@@ -68,13 +76,16 @@ impl TonSubscriber {
             messages_queue,
             capabilities,
             blockchain_context: RwLock::new(blockchain_context),
-        })
+        }))
     }
 
     pub fn metrics(&self) -> TonSubscriberMetrics {
         TonSubscriberMetrics {
-            ready: true,
+            ready: self.ready.load(Ordering::Acquire),
             current_utime: self.current_utime(),
+            mc_seqno: self.mc_seqno.load(Ordering::Acquire),
+            masterchain_last_updated: self.masterchain_last_updated.load(Ordering::Acquire),
+            network_id: self.network_id.load(Ordering::Acquire),
             signature_id: self.signature_id(),
             pending_message_count: self.messages_queue.len(),
         }
@@ -168,6 +179,11 @@ impl TonSubscriber {
         let block_info = block.load_info()?;
         let gen_utime = block_info.gen_utime;
         self.current_utime.store(gen_utime, Ordering::Release);
+        self.mc_seqno
+            .store(block_stuff.id().seqno, Ordering::Release);
+        self.masterchain_last_updated
+            .store(now_sec() as i64 - gen_utime as i64, Ordering::Release);
+        self.ready.store(true, Ordering::Release);
 
         let mut mc_block_awaiters = self.mc_block_awaiters.lock();
         mc_block_awaiters.retain(
@@ -232,7 +248,9 @@ impl TonSubscriber {
                             .merge()
                             .ok_or(tycho_types::error::Error::InvalidData)?;
 
-                        let opposite = shard.opposite().expect("after split");
+                        let opposite = shard
+                            .opposite()
+                            .ok_or(tycho_types::error::Error::InvalidData)?;
 
                         // Remove parent shard state
                         if cache.contains_key(&shard) && cache.contains_key(&opposite) {
@@ -368,6 +386,9 @@ impl TonSubscriber {
 pub struct TonSubscriberMetrics {
     pub ready: bool,
     pub current_utime: u32,
+    pub mc_seqno: u32,
+    pub masterchain_last_updated: i64,
+    pub network_id: i32,
     pub signature_id: Option<i32>,
     pub pending_message_count: usize,
 }
@@ -653,7 +674,7 @@ impl CachedAccounts {
     fn get(&self, account: &HashBytes) -> Result<Option<ShardAccount>> {
         match self.accounts.get(account)? {
             Some((_, account)) => Ok(Some(ShardAccount {
-                data: account.account.as_cell().unwrap().clone(),
+                data: account.account.inner().clone(),
                 last_transaction_hash: account.last_trans_hash,
                 _state_handle: self.state_handle.clone(),
             })),

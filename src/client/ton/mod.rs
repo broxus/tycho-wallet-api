@@ -49,8 +49,9 @@ impl TonClient {
             .await?
             .into_iter()
             .map(|item| {
-                StdAddr::from_str(&format!("{}:{}", item.workchain_id, item.hex))
-                    .map_err(From::from)
+                let workchain_id = item.workchain_id;
+                let hex = item.hex;
+                StdAddr::from_str(&format!("{workchain_id}:{hex}")).map_err(From::from)
             })
             .collect::<anyhow::Result<Vec<StdAddr>>>()?;
 
@@ -865,19 +866,15 @@ impl TonClient {
     pub async fn get_blockchain_info(&self) -> Result<BlockchainInfo, Error> {
         let gen_utime = self.ton_core.current_utime();
 
-        let network_id = match () {
-            _ => TYCHO_TESTNET_CHAIN_ID,
-        };
-
         let subscriber_metrics = self.ton_core.context.ton_subscriber.metrics();
 
         Ok(BlockchainInfo {
-            network_id,
+            network_id: subscriber_metrics.network_id,
             synced: subscriber_metrics.ready,
             subscriber_pending_messages: subscriber_metrics.pending_message_count,
             tip_block_ts: gen_utime,
-            masterchain_height: 0,
-            masterchain_last_updated: 0,
+            masterchain_height: subscriber_metrics.mc_seqno,
+            masterchain_last_updated: subscriber_metrics.masterchain_last_updated,
         })
     }
 
@@ -1265,8 +1262,6 @@ fn build_token_transaction(
         expire_at,
     })
 }
-
-const TYCHO_TESTNET_CHAIN_ID: i32 = -4000;
 
 #[derive(Debug)]
 pub struct PrepareResult {

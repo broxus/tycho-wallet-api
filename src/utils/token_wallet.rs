@@ -128,7 +128,8 @@ pub fn prepare_token_mint(
             let tokens = [
                 AbiValue::uint(128, tokens.to_u128().unwrap()).named("amount"),
                 AbiValue::address(recipient).named("recipient"),
-                AbiValue::uint(128, deploy_wallet_value).named("deployWalletValue"),
+                AbiValue::uint(128, deploy_wallet_value.to_u128().unwrap())
+                    .named("deployWalletValue"),
                 AbiValue::address(send_gas_to).named("remainingGasTo"),
                 AbiValue::Bool(notify).named("notify"),
                 AbiValue::Cell(payload).named("payload"),

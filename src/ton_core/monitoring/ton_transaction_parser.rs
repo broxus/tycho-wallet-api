@@ -202,7 +202,13 @@ fn compute_value(transaction: &Transaction) -> u128 {
     }
 
     for message in transaction.iter_out_msgs() {
-        let message = message.unwrap();
+        let message = match message {
+            Ok(message) => message,
+            Err(error) => {
+                tracing::error!(?error, "failed to load outgoing message");
+                continue;
+            }
+        };
         if let MsgInfo::Int(header) = message.info {
             value += header.value.tokens.into_inner();
         }
@@ -229,7 +235,13 @@ pub fn compute_balance_change(transaction: &Transaction) -> i128 {
     }
 
     for message in transaction.iter_out_msgs() {
-        let message = message.unwrap();
+        let message = match message {
+            Ok(message) => message,
+            Err(error) => {
+                tracing::error!(?error, "failed to load outgoing message");
+                continue;
+            }
+        };
         if let MsgInfo::Int(header) = message.info {
             diff -= header.value.tokens.into_inner() as i128;
         }

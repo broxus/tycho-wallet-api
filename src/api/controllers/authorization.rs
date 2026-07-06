@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use aide::{OperationInput, OperationOutput};
 use axum::body::Body;
-use axum::extract::{FromRequest, FromRequestParts, OriginalUri};
+use axum::extract::{FromRequestParts, OriginalUri};
 use axum::http::request::Parts;
 use axum::http::Request;
 use axum::http::{Method, StatusCode};
@@ -95,9 +95,7 @@ async fn check_api_key(
     // Forward service id to request handler
     req.extensions_mut().insert(IdExtractor(service_id));
 
-    Ok(Request::from_request(req, &auth_service)
-        .await
-        .expect("can't fail"))
+    Ok(req)
 }
 
 #[derive(Debug, Clone)]
