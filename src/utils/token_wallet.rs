@@ -44,9 +44,8 @@ pub fn prepare_token_transfer(
         TokenWalletVersion::Tip3 => {
             use crate::utils::token_wallets;
             let function = token_wallets::transfer();
-            let amount = to_uint128(&tokens, "amount")?;
             let tokens = [
-                AbiValue::uint(128, amount).named("amount"),
+                AbiValue::uint(128, tokens.to_u128().unwrap()).named("amount"),
                 AbiValue::address(destination).named("recipient"),
                 AbiValue::uint(128, INITIAL_BALANCE).named("deployWalletValue"),
                 AbiValue::address(send_gas_to).named("remainingGasTo"),
@@ -87,9 +86,8 @@ pub fn prepare_token_burn(
             use crate::utils::token_wallets;
 
             let function = token_wallets::burnable::burn();
-            let amount = to_uint128(&tokens, "amount")?;
             let tokens = [
-                AbiValue::uint(128, amount).named("amount"),
+                AbiValue::uint(128, tokens.to_u128().unwrap()).named("amount"),
                 AbiValue::address(send_gas_to).named("remainingGasTo"),
                 AbiValue::address(callback_to).named("callbackTo"),
                 AbiValue::Cell(payload).named("payload"),
@@ -127,12 +125,11 @@ pub fn prepare_token_mint(
         TokenWalletVersion::Tip3 => {
             use crate::utils::token_wallets;
             let function = token_wallets::mint();
-            let amount = to_uint128(&tokens, "amount")?;
-            let deploy_wallet_value = to_uint128(&deploy_wallet_value, "deployWalletValue")?;
             let tokens = [
-                AbiValue::uint(128, amount).named("amount"),
+                AbiValue::uint(128, tokens.to_u128().unwrap()).named("amount"),
                 AbiValue::address(recipient).named("recipient"),
-                AbiValue::uint(128, deploy_wallet_value).named("deployWalletValue"),
+                AbiValue::uint(128, deploy_wallet_value.to_u128().unwrap())
+                    .named("deployWalletValue"),
                 AbiValue::address(send_gas_to).named("remainingGasTo"),
                 AbiValue::Bool(notify).named("notify"),
                 AbiValue::Cell(payload).named("payload"),
@@ -231,16 +228,8 @@ pub fn get_root_token_version(
     Ok(version)
 }
 
-fn to_uint128(value: &BigUint, field: &'static str) -> Result<u128> {
-    value
-        .to_u128()
-        .ok_or_else(|| TokenWalletError::InvalidUint128(field).into())
-}
-
 #[derive(thiserror::Error, Debug)]
 enum TokenWalletError {
     #[error("not supported OldTip3v4 tokens")]
     NotSupported,
-    #[error("{0} does not fit into uint128")]
-    InvalidUint128(&'static str),
 }
